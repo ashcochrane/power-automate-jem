@@ -1,0 +1,10 @@
+Hi {FirstName},
+
+Please find your Mobility Parking Pass attached for {EventName} on {EventDate}.
+
+Please print this pass and display it clearly on your dashboard when parked.
+
+If you have any questions, please contact {ContactEmail}.
+
+Kind regards,
+Eden Park
