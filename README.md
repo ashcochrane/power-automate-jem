@@ -12,10 +12,21 @@ Automates the generation and emailing of personalised mobility parking passes fo
 
 | Folder | Contents |
 |---|---|
-| `templates/` | Word template (with content controls), Excel starter file setup guide, email body text |
-| `solution/` | Exported Power Automate solution package (.zip) |
-| `docs/` | Setup guides for IT, the end user, and the developer |
-| `samples/` | Test data and example output |
+| `templates/` | Word template (with content controls), email body text |
+| `solution/` | Importable Power Automate flow package (.zip), standalone flow definition (.json), and import instructions |
+| `docs/` | Setup guides for IT, the end user, the developer, and a full manual build guide |
+| `samples/` | Test data (fake CSV rows) |
+
+### Key files
+
+| File | Who it's for |
+|---|---|
+| [`solution/MobilityParkingPass.zip`](solution/MobilityParkingPass.zip) | IT — importable flow package |
+| [`solution/IMPORT-INSTRUCTIONS.md`](solution/IMPORT-INSTRUCTIONS.md) | IT — step-by-step import guide |
+| [`docs/it-setup-guide.md`](docs/it-setup-guide.md) | IT — full setup: folders, templates, import, configure, test |
+| [`docs/end-user-guide.md`](docs/end-user-guide.md) | Operator — paste data, dedup, run, check results |
+| [`docs/flow-build-guide.md`](docs/flow-build-guide.md) | Developer — rebuild the flow from scratch if needed |
+| [`docs/manual-build-guide.md`](docs/manual-build-guide.md) | Developer — complete step-by-step build guide with screenshots-level detail |
 
 ## Setup
 

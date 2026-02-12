@@ -1,0 +1,318 @@
+{
+  "properties": {
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      },
+      "actions": {
+        "List_rows_present_in_a_table": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "GetItems"
+            },
+            "parameters": {
+              "source": "me",
+              "drive": "",
+              "file": "",
+              "table": "",
+              "$filter": "SendStatus ne 'Sent'",
+              "$top": 50
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runAfter": {},
+          "metadata": {
+            "tableDisplayName": "tblLetters",
+            "fileDisplayName": "Data.xlsx"
+          },
+          "description": "CONFIGURE AFTER IMPORT: Set Location, File path (/Automation/Input/Data.xlsx), and Table (tblLetters)"
+        },
+        "Apply_to_each": {
+          "type": "Foreach",
+          "foreach": "@outputs('List_rows_present_in_a_table')?['body/value']",
+          "actions": {
+            "Try": {
+              "type": "Scope",
+              "actions": {
+                "Compose_FullName": {
+                  "type": "Compose",
+                  "inputs": "@concat(items('Apply_to_each')?['Name (First)'],' ',items('Apply_to_each')?['Name (Last)'])",
+                  "runAfter": {},
+                  "description": "Combines first and last name into a single string"
+                },
+                "Compose_SafeBaseName": {
+                  "type": "Compose",
+                  "inputs": "@replace(replace(replace(replace(replace(replace(replace(concat(items('Apply_to_each')?['Mobility or Disability Parking Permit Number'],' - ',items('Apply_to_each')?['Name (Last)']),'/','-'),'\\','-'),':','-'),'*','-'),'?','-'),'\"','-'),'<','-')",
+                  "runAfter": {},
+                  "description": "Creates a safe filename: PermitNumber - LastName with illegal characters stripped"
+                },
+                "Populate_a_Microsoft_Word_template": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_wordonlinebusiness",
+                      "connectionName": "shared_wordonlinebusiness",
+                      "operationId": "CreateFileItem"
+                    },
+                    "parameters": {
+                      "source": "me",
+                      "drive": "",
+                      "file": "",
+                      "templateFields/FullName": "@outputs('Compose_FullName')",
+                      "templateFields/PermitNumber": "@items('Apply_to_each')?['Mobility or Disability Parking Permit Number']",
+                      "templateFields/VehiclePlate": "@items('Apply_to_each')?['Vehicle number plate']",
+                      "templateFields/VehicleType": "@items('Apply_to_each')?['Vehicle type']",
+                      "templateFields/EventName": "@items('Apply_to_each')?['Event']",
+                      "templateFields/EventDate": "@items('Apply_to_each')?['EventDate']"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Compose_FullName": ["Succeeded"],
+                    "Compose_SafeBaseName": ["Succeeded"]
+                  },
+                  "metadata": {
+                    "fileDisplayName": "LetterTemplate.docx"
+                  },
+                  "description": "CONFIGURE AFTER IMPORT: Set Location and File path (/Automation/Templates/LetterTemplate.docx)"
+                },
+                "Create_DOCX_file": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness",
+                      "connectionName": "shared_onedriveforbusiness",
+                      "operationId": "CreateFile"
+                    },
+                    "parameters": {
+                      "folderPath": "/Automation/Output/DOCX",
+                      "name": "@{concat(outputs('Compose_SafeBaseName'),'.docx')}",
+                      "body": "@body('Populate_a_Microsoft_Word_template')"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Populate_a_Microsoft_Word_template": ["Succeeded"]
+                  },
+                  "description": "Saves the populated DOCX — needed as input for the PDF conversion step"
+                },
+                "Convert_Word_Document_to_PDF": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_wordonlinebusiness",
+                      "connectionName": "shared_wordonlinebusiness",
+                      "operationId": "ConvertToPdf"
+                    },
+                    "parameters": {
+                      "source": "me",
+                      "drive": "",
+                      "file": "@outputs('Create_DOCX_file')?['body/Id']"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Create_DOCX_file": ["Succeeded"]
+                  },
+                  "description": "Converts the saved DOCX to PDF. CONFIGURE AFTER IMPORT: Set Location/Drive if needed."
+                },
+                "Create_PDF_file": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness",
+                      "connectionName": "shared_onedriveforbusiness",
+                      "operationId": "CreateFile"
+                    },
+                    "parameters": {
+                      "folderPath": "/Automation/Output/PDF",
+                      "name": "@{concat(outputs('Compose_SafeBaseName'),'.pdf')}",
+                      "body": "@body('Convert_Word_Document_to_PDF')"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Convert_Word_Document_to_PDF": ["Succeeded"]
+                  },
+                  "description": "Saves the PDF to the Output/PDF folder"
+                },
+                "Send_an_email_(V2)": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@items('Apply_to_each')?['Email (Enter Email)']",
+                      "emailMessage/Subject": "@concat('Your Mobility Parking Pass — ',items('Apply_to_each')?['Event'],' ',items('Apply_to_each')?['EventDate'])",
+                      "emailMessage/Body": "<p>Hi @{items('Apply_to_each')?['Name (First)']},<br><br>Please find your Mobility Parking Pass attached for <strong>@{items('Apply_to_each')?['Event']}</strong> on <strong>@{items('Apply_to_each')?['EventDate']}</strong>.<br><br>Please print this pass and display it clearly on your dashboard when parked.<br><br>If you have any questions, please contact us.<br><br>Kind regards,<br>Eden Park</p>",
+                      "emailMessage/Importance": "Normal",
+                      "emailMessage/Attachments": [
+                        {
+                          "Name": "@concat(outputs('Compose_SafeBaseName'),'.pdf')",
+                          "ContentBytes": "@body('Convert_Word_Document_to_PDF')"
+                        }
+                      ]
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Create_PDF_file": ["Succeeded"]
+                  },
+                  "description": "Emails the PDF pass to the recipient"
+                },
+                "Update_a_row_-_Success": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                      "connectionName": "shared_excelonlinebusiness",
+                      "operationId": "UpdateItem"
+                    },
+                    "parameters": {
+                      "source": "me",
+                      "drive": "",
+                      "file": "",
+                      "table": "",
+                      "idColumn": "Permit No.",
+                      "id": "@items('Apply_to_each')?['Permit No.']",
+                      "item/SendStatus": "Sent",
+                      "item/SentAt": "@utcNow()",
+                      "item/ErrorMessage": ""
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {
+                    "Send_an_email_(V2)": ["Succeeded"]
+                  },
+                  "metadata": {
+                    "tableDisplayName": "tblLetters",
+                    "fileDisplayName": "Data.xlsx"
+                  },
+                  "description": "CONFIGURE AFTER IMPORT: Set Location, File, and Table to match List rows step"
+                }
+              },
+              "runAfter": {},
+              "description": "Main processing — all actions for a single row. If anything fails, the Catch scope handles it."
+            },
+            "Catch": {
+              "type": "Scope",
+              "actions": {
+                "Update_a_row_-_Error": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                      "connectionName": "shared_excelonlinebusiness",
+                      "operationId": "UpdateItem"
+                    },
+                    "parameters": {
+                      "source": "me",
+                      "drive": "",
+                      "file": "",
+                      "table": "",
+                      "idColumn": "Permit No.",
+                      "id": "@items('Apply_to_each')?['Permit No.']",
+                      "item/SendStatus": "Error",
+                      "item/ErrorMessage": "@{string(result('Try'))}",
+                      "item/SentAt": "@utcNow()"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runAfter": {},
+                  "metadata": {
+                    "tableDisplayName": "tblLetters",
+                    "fileDisplayName": "Data.xlsx"
+                  },
+                  "description": "CONFIGURE AFTER IMPORT: Set Location, File, and Table to match List rows step"
+                }
+              },
+              "runAfter": {
+                "Try": ["Failed", "TimedOut", "Skipped"]
+              },
+              "description": "Error handler — runs only when Try scope fails. Writes error details back to Excel row."
+            },
+            "Delete_DOCX_file": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness",
+                  "connectionName": "shared_onedriveforbusiness",
+                  "operationId": "DeleteFile"
+                },
+                "parameters": {
+                  "id": "@outputs('Create_DOCX_file')?['body/Id']"
+                },
+                "authentication": "@parameters('$authentication')"
+              },
+              "runAfter": {
+                "Try": ["Succeeded"]
+              },
+              "description": "Cleans up the temporary DOCX file after successful PDF creation and email send"
+            }
+          },
+          "runAfter": {
+            "List_rows_present_in_a_table": ["Succeeded"]
+          },
+          "description": "Loops through each unsent row from the Excel table"
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_excelonlinebusiness": {
+        "connectionName": "shared_excelonlinebusiness",
+        "source": "Invoker",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+        "tier": "NotSpecified"
+      },
+      "shared_wordonlinebusiness": {
+        "connectionName": "shared_wordonlinebusiness",
+        "source": "Invoker",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_wordonlinebusiness",
+        "tier": "NotSpecified"
+      },
+      "shared_onedriveforbusiness": {
+        "connectionName": "shared_onedriveforbusiness",
+        "source": "Invoker",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness",
+        "tier": "NotSpecified"
+      },
+      "shared_office365": {
+        "connectionName": "shared_office365",
+        "source": "Invoker",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "tier": "NotSpecified"
+      }
+    },
+    "flowDisplayName": "Mobility Parking Pass",
+    "description": "Generates personalised mobility parking passes as PDFs and emails them to recipients. Reads from an Excel table, populates a Word template, converts to PDF, emails with attachment, and tracks send status."
+  },
+  "schemaVersion": "1.0.0.0"
+}

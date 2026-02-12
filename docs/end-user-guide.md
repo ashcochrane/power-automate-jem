@@ -35,12 +35,21 @@ Make sure the columns line up. The key columns are:
 
 ## Step 3 — Check for duplicates
 
-Before sending, check for duplicate entries:
+Before sending, check for duplicate entries. The spreadsheet has conditional formatting already set up — duplicates will be highlighted automatically.
+
+**If duplicates are highlighted (coloured cells):**
+
+1. Look at the **Mobility or Disability Parking Permit Number** column — duplicates are highlighted in red
+2. Look at the **Vehicle number plate** column — duplicates are highlighted in yellow
+3. For each set of duplicates, keep the most recent entry (latest Entry Date) and delete the older rows
+
+**If conditional formatting is not set up yet:**
 
 1. Select the **Mobility or Disability Parking Permit Number** column
 2. Go to **Home > Conditional Formatting > Highlight Cell Rules > Duplicate Values**
-3. Any highlighted rows are duplicates — keep the most recent entry and delete the older ones
-4. Repeat for the **Vehicle number plate** column
+3. Choose red highlight, click OK
+4. Repeat for the **Vehicle number plate** column with yellow highlight
+5. Delete the older duplicate rows, keeping the most recent entry for each
 
 ## Step 4 — Run the flow
 
