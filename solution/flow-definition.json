@@ -1,5 +1,11 @@
 {
+  "name": "a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
+  "id": "/providers/Microsoft.Flow/flows/a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
+  "type": "Microsoft.Flow/flows",
   "properties": {
+    "apiId": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+    "displayName": "Mobility Parking Pass",
+    "description": "Generates and emails personalised mobility parking passes for Eden Park events. Reads from Excel, populates Word template, converts to PDF, emails with attachment, tracks status.",
     "definition": {
       "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
       "contentVersion": "1.0.0.0",
@@ -15,6 +21,9 @@
       },
       "triggers": {
         "manual": {
+          "metadata": {
+            "operationMetadataId": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a"
+          },
           "type": "Request",
           "kind": "Button",
           "inputs": {
@@ -28,6 +37,10 @@
       },
       "actions": {
         "List_rows_present_in_a_table": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e"
+          },
           "type": "OpenApiConnection",
           "inputs": {
             "host": {
@@ -45,33 +58,37 @@
             },
             "authentication": "@parameters('$authentication')"
           },
-          "runAfter": {},
-          "metadata": {
-            "tableDisplayName": "tblLetters",
-            "fileDisplayName": "Data.xlsx"
-          },
-          "description": "CONFIGURE AFTER IMPORT: Set Location, File path (/Automation/Input/Data.xlsx), and Table (tblLetters)"
+          "description": "CONFIGURE AFTER IMPORT: Set Location, File (/Automation/Input/Data.xlsx), and Table (tblLetters)"
         },
         "Apply_to_each": {
-          "type": "Foreach",
           "foreach": "@outputs('List_rows_present_in_a_table')?['body/value']",
           "actions": {
             "Try": {
-              "type": "Scope",
               "actions": {
-                "Compose_FullName": {
+                "Compose_-_FullName": {
+                  "runAfter": {},
                   "type": "Compose",
                   "inputs": "@concat(items('Apply_to_each')?['Name (First)'],' ',items('Apply_to_each')?['Name (Last)'])",
-                  "runAfter": {},
-                  "description": "Combines first and last name into a single string"
+                  "description": "Combines first and last name"
                 },
-                "Compose_SafeBaseName": {
+                "Compose_-_SafeBaseName": {
+                  "runAfter": {},
                   "type": "Compose",
                   "inputs": "@replace(replace(replace(replace(replace(replace(replace(concat(items('Apply_to_each')?['Mobility or Disability Parking Permit Number'],' - ',items('Apply_to_each')?['Name (Last)']),'/','-'),'\\','-'),':','-'),'*','-'),'?','-'),'\"','-'),'<','-')",
-                  "runAfter": {},
-                  "description": "Creates a safe filename: PermitNumber - LastName with illegal characters stripped"
+                  "description": "Creates safe filename: PermitNumber - LastName"
                 },
                 "Populate_a_Microsoft_Word_template": {
+                  "runAfter": {
+                    "Compose_-_FullName": [
+                      "Succeeded"
+                    ],
+                    "Compose_-_SafeBaseName": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -83,7 +100,7 @@
                       "source": "me",
                       "drive": "",
                       "file": "",
-                      "templateFields/FullName": "@outputs('Compose_FullName')",
+                      "templateFields/FullName": "@outputs('Compose_-_FullName')",
                       "templateFields/PermitNumber": "@items('Apply_to_each')?['Mobility or Disability Parking Permit Number']",
                       "templateFields/VehiclePlate": "@items('Apply_to_each')?['Vehicle number plate']",
                       "templateFields/VehicleType": "@items('Apply_to_each')?['Vehicle type']",
@@ -92,16 +109,17 @@
                     },
                     "authentication": "@parameters('$authentication')"
                   },
-                  "runAfter": {
-                    "Compose_FullName": ["Succeeded"],
-                    "Compose_SafeBaseName": ["Succeeded"]
-                  },
-                  "metadata": {
-                    "fileDisplayName": "LetterTemplate.docx"
-                  },
-                  "description": "CONFIGURE AFTER IMPORT: Set Location and File path (/Automation/Templates/LetterTemplate.docx)"
+                  "description": "CONFIGURE AFTER IMPORT: Set Location and File (/Automation/Templates/LetterTemplate.docx)"
                 },
                 "Create_DOCX_file": {
+                  "runAfter": {
+                    "Populate_a_Microsoft_Word_template": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -111,17 +129,22 @@
                     },
                     "parameters": {
                       "folderPath": "/Automation/Output/DOCX",
-                      "name": "@{concat(outputs('Compose_SafeBaseName'),'.docx')}",
+                      "name": "@{concat(outputs('Compose_-_SafeBaseName'),'.docx')}",
                       "body": "@body('Populate_a_Microsoft_Word_template')"
                     },
                     "authentication": "@parameters('$authentication')"
                   },
-                  "runAfter": {
-                    "Populate_a_Microsoft_Word_template": ["Succeeded"]
-                  },
-                  "description": "Saves the populated DOCX — needed as input for the PDF conversion step"
+                  "description": "Saves populated DOCX temporarily for PDF conversion"
                 },
                 "Convert_Word_Document_to_PDF": {
+                  "runAfter": {
+                    "Create_DOCX_file": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -136,12 +159,17 @@
                     },
                     "authentication": "@parameters('$authentication')"
                   },
-                  "runAfter": {
-                    "Create_DOCX_file": ["Succeeded"]
-                  },
-                  "description": "Converts the saved DOCX to PDF. CONFIGURE AFTER IMPORT: Set Location/Drive if needed."
+                  "description": "Converts the DOCX to PDF"
                 },
                 "Create_PDF_file": {
+                  "runAfter": {
+                    "Convert_Word_Document_to_PDF": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "f6a7b8c9-d0e1-2f3a-4b5c-6d7e8f9a0b1c"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -151,17 +179,22 @@
                     },
                     "parameters": {
                       "folderPath": "/Automation/Output/PDF",
-                      "name": "@{concat(outputs('Compose_SafeBaseName'),'.pdf')}",
+                      "name": "@{concat(outputs('Compose_-_SafeBaseName'),'.pdf')}",
                       "body": "@body('Convert_Word_Document_to_PDF')"
                     },
                     "authentication": "@parameters('$authentication')"
                   },
-                  "runAfter": {
-                    "Convert_Word_Document_to_PDF": ["Succeeded"]
-                  },
-                  "description": "Saves the PDF to the Output/PDF folder"
+                  "description": "Saves the PDF to Output/PDF folder"
                 },
                 "Send_an_email_(V2)": {
+                  "runAfter": {
+                    "Create_PDF_file": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "a7b8c9d0-e1f2-3a4b-5c6d-7e8f9a0b1c2d"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -171,24 +204,29 @@
                     },
                     "parameters": {
                       "emailMessage/To": "@items('Apply_to_each')?['Email (Enter Email)']",
-                      "emailMessage/Subject": "@concat('Your Mobility Parking Pass — ',items('Apply_to_each')?['Event'],' ',items('Apply_to_each')?['EventDate'])",
-                      "emailMessage/Body": "<p>Hi @{items('Apply_to_each')?['Name (First)']},<br><br>Please find your Mobility Parking Pass attached for <strong>@{items('Apply_to_each')?['Event']}</strong> on <strong>@{items('Apply_to_each')?['EventDate']}</strong>.<br><br>Please print this pass and display it clearly on your dashboard when parked.<br><br>If you have any questions, please contact us.<br><br>Kind regards,<br>Eden Park</p>",
-                      "emailMessage/Importance": "Normal",
+                      "emailMessage/Subject": "@{concat('Your Mobility Parking Pass — ',items('Apply_to_each')?['Event'],' ',items('Apply_to_each')?['EventDate'])}",
+                      "emailMessage/Body": "<p>Hi @{items('Apply_to_each')?['Name (First)']},</p><p>Please find your Mobility Parking Pass attached for <b>@{items('Apply_to_each')?['Event']}</b> on <b>@{items('Apply_to_each')?['EventDate']}</b>.</p><p>Please print this pass and display it clearly on your dashboard when parked.</p><p>If you have any questions, please contact us.</p><p>Kind regards,<br>Eden Park</p>",
                       "emailMessage/Attachments": [
                         {
-                          "Name": "@concat(outputs('Compose_SafeBaseName'),'.pdf')",
+                          "Name": "@{concat(outputs('Compose_-_SafeBaseName'),'.pdf')}",
                           "ContentBytes": "@body('Convert_Word_Document_to_PDF')"
                         }
-                      ]
+                      ],
+                      "emailMessage/Importance": "Normal"
                     },
                     "authentication": "@parameters('$authentication')"
-                  },
-                  "runAfter": {
-                    "Create_PDF_file": ["Succeeded"]
                   },
                   "description": "Emails the PDF pass to the recipient"
                 },
                 "Update_a_row_-_Success": {
+                  "runAfter": {
+                    "Send_an_email_(V2)": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "b8c9d0e1-f2a3-4b5c-6d7e-8f9a0b1c2d3e"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -204,28 +242,25 @@
                       "idColumn": "Permit No.",
                       "id": "@items('Apply_to_each')?['Permit No.']",
                       "item/SendStatus": "Sent",
-                      "item/SentAt": "@utcNow()",
+                      "item/SentAt": "@{utcNow()}",
                       "item/ErrorMessage": ""
                     },
                     "authentication": "@parameters('$authentication')"
                   },
-                  "runAfter": {
-                    "Send_an_email_(V2)": ["Succeeded"]
-                  },
-                  "metadata": {
-                    "tableDisplayName": "tblLetters",
-                    "fileDisplayName": "Data.xlsx"
-                  },
-                  "description": "CONFIGURE AFTER IMPORT: Set Location, File, and Table to match List rows step"
+                  "description": "CONFIGURE AFTER IMPORT: Set Location, File, Table to match List rows step"
                 }
               },
               "runAfter": {},
-              "description": "Main processing — all actions for a single row. If anything fails, the Catch scope handles it."
+              "type": "Scope",
+              "description": "Main processing scope — if anything inside fails, the Catch scope handles it"
             },
             "Catch": {
-              "type": "Scope",
               "actions": {
                 "Update_a_row_-_Error": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "c9d0e1f2-a3b4-5c6d-7e8f-9a0b1c2d3e4f"
+                  },
                   "type": "OpenApiConnection",
                   "inputs": {
                     "host": {
@@ -242,24 +277,32 @@
                       "id": "@items('Apply_to_each')?['Permit No.']",
                       "item/SendStatus": "Error",
                       "item/ErrorMessage": "@{string(result('Try'))}",
-                      "item/SentAt": "@utcNow()"
+                      "item/SentAt": "@{utcNow()}"
                     },
                     "authentication": "@parameters('$authentication')"
                   },
-                  "runAfter": {},
-                  "metadata": {
-                    "tableDisplayName": "tblLetters",
-                    "fileDisplayName": "Data.xlsx"
-                  },
-                  "description": "CONFIGURE AFTER IMPORT: Set Location, File, and Table to match List rows step"
+                  "description": "CONFIGURE AFTER IMPORT: Set Location, File, Table to match List rows step"
                 }
               },
               "runAfter": {
-                "Try": ["Failed", "TimedOut", "Skipped"]
+                "Try": [
+                  "Failed",
+                  "TimedOut",
+                  "Skipped"
+                ]
               },
-              "description": "Error handler — runs only when Try scope fails. Writes error details back to Excel row."
+              "type": "Scope",
+              "description": "Error handler — writes Error status and message back to Excel row"
             },
             "Delete_DOCX_file": {
+              "runAfter": {
+                "Try": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a"
+              },
               "type": "OpenApiConnection",
               "inputs": {
                 "host": {
@@ -272,47 +315,54 @@
                 },
                 "authentication": "@parameters('$authentication')"
               },
-              "runAfter": {
-                "Try": ["Succeeded"]
-              },
-              "description": "Cleans up the temporary DOCX file after successful PDF creation and email send"
+              "description": "Cleans up temporary DOCX file after successful processing"
             }
           },
           "runAfter": {
-            "List_rows_present_in_a_table": ["Succeeded"]
+            "List_rows_present_in_a_table": [
+              "Succeeded"
+            ]
           },
-          "description": "Loops through each unsent row from the Excel table"
+          "type": "Foreach",
+          "description": "Loops through each unsent row",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          }
         }
-      }
+      },
+      "outputs": {}
     },
     "connectionReferences": {
       "shared_excelonlinebusiness": {
-        "connectionName": "shared_excelonlinebusiness",
+        "connectionName": "",
         "source": "Invoker",
         "id": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
         "tier": "NotSpecified"
       },
       "shared_wordonlinebusiness": {
-        "connectionName": "shared_wordonlinebusiness",
+        "connectionName": "",
         "source": "Invoker",
         "id": "/providers/Microsoft.PowerApps/apis/shared_wordonlinebusiness",
         "tier": "NotSpecified"
       },
       "shared_onedriveforbusiness": {
-        "connectionName": "shared_onedriveforbusiness",
+        "connectionName": "",
         "source": "Invoker",
         "id": "/providers/Microsoft.PowerApps/apis/shared_onedriveforbusiness",
         "tier": "NotSpecified"
       },
       "shared_office365": {
-        "connectionName": "shared_office365",
+        "connectionName": "",
         "source": "Invoker",
         "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
         "tier": "NotSpecified"
       }
     },
-    "flowDisplayName": "Mobility Parking Pass",
-    "description": "Generates personalised mobility parking passes as PDFs and emails them to recipients. Reads from an Excel table, populates a Word template, converts to PDF, emails with attachment, and tracks send status."
-  },
-  "schemaVersion": "1.0.0.0"
+    "environment": {
+      "name": "Default",
+      "id": ""
+    }
+  }
 }
